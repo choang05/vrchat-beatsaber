@@ -1,27 +1,29 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Rendering;
 using UnityEngine;
 
-public class StripPostProcessing : IPreprocessShaders
+namespace VRC.SDKBase.Editor.ShaderStripping
 {
-    public int callbackOrder => 0;
-
-    public void OnProcessShader(Shader shader, ShaderSnippetData snippet, IList<ShaderCompilerData> data)
+    public class StripPostProcessing : IPreprocessShaders
     {
-        if(EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
-        {
-            return;
-        }
+        public int callbackOrder => 0;
 
-        string shaderName = shader.name;
-        if(string.IsNullOrEmpty(shaderName) || !shaderName.Contains("PostProcessing"))
+        public void OnProcessShader(Shader shader, ShaderSnippetData snippet, IList<ShaderCompilerData> data)
         {
-            return;
-        }
+            if(EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                return;
+            }
 
-        data.Clear();
+            string shaderName = shader.name;
+            if(string.IsNullOrEmpty(shaderName) || !shaderName.Contains("PostProcessing"))
+            {
+                return;
+            }
+
+            data.Clear();
+        }
     }
 }

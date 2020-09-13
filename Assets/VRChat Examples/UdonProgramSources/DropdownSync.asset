@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: DropdownSync
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 058407d1b7d57d9448d6c2862e754f67,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 3a9c6593b8fd1844da11fa70d00a3d66,
     type: 2}
   udonAssembly: ".data_start\r\n\r\n    .export uiDropdown\r\n    .sync dropdownValue,
     none\r\n    \r\n    instance_0: %UnityEngineUIDropdown, null\r\n    value_0: %SystemInt32,
@@ -24,7 +24,6 @@ MonoBehaviour:
     \       JUMP, 0xFFFFFFFC\r\n    \r\n    .export OnValueChanged\r\n    \r\n    OnValueChanged:\r\n
     \   \r\n        PUSH, uiDropdown\r\n        PUSH, instance_1\r\n        COPY\r\n
     \       PUSH, instance_1\r\n        PUSH, dropdownValue\r\n        EXTERN, \"UnityEngineUIDropdown.__get_value__SystemInt32\"\r\n
-    \       PUSH, dropdownValue\r\n        PUSH, dropdownValue\r\n        COPY\r\n
     \       JUMP, 0xFFFFFFFC\r\n    \r\n\r\n.code_end\r\n"
   assemblyError: 
   graphData:
@@ -160,8 +159,4 @@ MonoBehaviour:
     jsonData: '{"uid":"92cd56c4-5635-473e-a201-7a22bb52fd48","layout":{"serializedVersion":"2","x":-796.2857666015625,"y":-609.4407958984375,"width":349.8594665527344,"height":99.33453369140625},"title":"This
       event can have any name we want as long as we make it the same on the UI item
       that triggers it.","layer":0,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":0.0}}'
-  viewTransform:
-    position: {x: 0, y: 0}
-    scale: 1
-  version: 1.0.0
   showAssembly: 0

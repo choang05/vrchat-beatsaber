@@ -575,6 +575,10 @@ namespace UdonSharp
                 catch (System.IO.IOException e)
                 {
                     exception = e;
+
+                    if (e is System.IO.FileNotFoundException ||
+                        e is System.IO.DirectoryNotFoundException)
+                        throw e;
                 }
 
                 if (sourceLoaded)
@@ -601,6 +605,22 @@ namespace UdonSharp
             {
                 return BitConverter.ToString(sha256.ComputeHash(Encoding.UTF8.GetBytes(stringToHash))).Replace("-", "");
             }
+        }
+
+        /// <summary>
+        /// Returns if a normal System.Object is null, and handles when a UnityEngine.Object referenced as a System.Object is null
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        internal static bool IsUnityObjectNull(this object value)
+        {
+            if (value == null)
+                return true;
+
+            if (value is UnityEngine.Object unityEngineObject && unityEngineObject == null)
+                return true;
+
+            return false;
         }
 
         internal static string[] GetProjectDefines(bool editorBuild)
