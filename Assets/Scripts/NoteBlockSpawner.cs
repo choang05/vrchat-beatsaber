@@ -17,7 +17,8 @@ public class NoteBlockSpawner : UdonSharpBehaviour
     public int queueCapacity = 30;
     public float beatsPerMinute = 132;
     public float songDuration = 15;
-    public float speed = 10;
+    public float noteSpeed = 10;
+    public Vector3 noteStartingRotation = new Vector3(0, 90, 0);
     //public float spawnRangeX = 5;
     //public float spawnRangeY = 0;
     //public float spawnRangeZ = 5;
@@ -39,6 +40,7 @@ public class NoteBlockSpawner : UdonSharpBehaviour
     private int totalSongNotes;
     private float accumulatedBeats = 0;
     private int avaliableActivePoolIndex = 0;
+    [SerializeField]
     private Transform[] activeNotesPool = new Transform[0];
     private float elapsedTime = 0f;
 
@@ -234,21 +236,21 @@ public class NoteBlockSpawner : UdonSharpBehaviour
 
                         //  solve for cut direction
                         Vector3 rot = Vector3.zero;
-                        if (_lineLayer[nextTimeIndex] == 0)
+                        if (_cutDirection[nextTimeIndex] == 0)
                             rot = new Vector3(0, 0, 180);
-                        else if (_lineLayer[nextTimeIndex] == 1)
+                        else if (_cutDirection[nextTimeIndex] == 1)
                             rot = new Vector3(0, 0, 0);
-                        else if (_lineLayer[nextTimeIndex] == 2)
+                        else if (_cutDirection[nextTimeIndex] == 2)
                             rot = new Vector3(0, 0, 90);
-                        else if (_lineLayer[nextTimeIndex] == 3)
+                        else if (_cutDirection[nextTimeIndex] == 3)
                             rot = new Vector3(0, 0, 270);
-                        else if (_lineLayer[nextTimeIndex] == 4)
+                        else if (_cutDirection[nextTimeIndex] == 4)
                             rot = new Vector3(0, 0, 135);
-                        else if (_lineLayer[nextTimeIndex] == 5)
+                        else if (_cutDirection[nextTimeIndex] == 5)
                             rot = new Vector3(0, 0, 225);
-                        else if (_lineLayer[nextTimeIndex] == 6)
+                        else if (_cutDirection[nextTimeIndex] == 6)
                             rot = new Vector3(0, 0, 45);
-                        else if (_lineLayer[nextTimeIndex] == 7)
+                        else if (_cutDirection[nextTimeIndex] == 7)
                             rot = new Vector3(0, 0, 315);
                         //else if (_lineLayer[currentNotesIndex] == 8)
                         //    rot = new Vector3(0, 0, 0);
@@ -259,7 +261,7 @@ public class NoteBlockSpawner : UdonSharpBehaviour
                         //  spawn
                         noteBlockPool[currentNotePoolIndex].gameObject.SetActive(true);
                         noteBlockPool[currentNotePoolIndex].transform.position = pos;
-                        noteBlockPool[currentNotePoolIndex].transform.rotation = Quaternion.Euler(rot);
+                        noteBlockPool[currentNotePoolIndex].transform.rotation = Quaternion.Euler(rot + noteStartingRotation);
 
                         //  insert check
                         bool isInserted = InsertIntoActivePool(noteBlockPool[currentNotePoolIndex].transform);
@@ -299,19 +301,21 @@ public class NoteBlockSpawner : UdonSharpBehaviour
             activeNotesPool[avaliableActivePoolIndex] = tr;
 
             //  set new avaliable index
-            //  micro otimization using prediction
+                //  micro otimization - check if the next position is avaliable, set it to that
             if (avaliableActivePoolIndex + 1 < activeNotesPool.Length && activeNotesPool[avaliableActivePoolIndex + 1] == null)
             {
                 avaliableActivePoolIndex += 1;
             }
             else
             {
+                //  Search for any new avaliable indexes
                 avaliableActivePoolIndex = -1;
                 for (int i = 0; i < activeNotesPool.Length; i++)
                 {
                     if (activeNotesPool[i] == null)
                     {
                         avaliableActivePoolIndex = i;
+                        break;
                     }
                 }
             }
@@ -339,11 +343,11 @@ public class NoteBlockSpawner : UdonSharpBehaviour
                 //  remove
                 activeNotesPool[i] = null;
 
-                //  update index
-                if (avaliableActivePoolIndex < 0)
-                {
-                    avaliableActivePoolIndex = i;
-                }
+                //  update avaliable index
+                avaliableActivePoolIndex = i;
+                //if (avaliableActivePoolIndex < 0)
+                //{
+                //}
 
                 break;
             }
@@ -368,7 +372,8 @@ public class NoteBlockSpawner : UdonSharpBehaviour
             if (activeNotesPool[i] == null || activeNotesPool[i].gameObject.activeInHierarchy == false)
                 continue;
 
-            activeNotesPool[i].Translate(transform.forward * Time.deltaTime * speed);
+            //activeNotesPool[i].Translate(transform.forward * Time.deltaTime * speed);
+            activeNotesPool[i].position += transform.forward * Time.deltaTime * noteSpeed;
         }
     }
 
@@ -381,7 +386,7 @@ public class NoteBlockSpawner : UdonSharpBehaviour
         for (int i = 0; i < poolAmount; i++)
         {
             noteBlockPool[i] = VRCInstantiate(noteBlockPrefab);
-            noteBlockPool[i].transform.rotation = Quaternion.LookRotation(transform.forward);
+            noteBlockPool[i].transform.rotation = Quaternion.Euler(noteStartingRotation);
 
             //  Assign index id to noteblock using it's gameobject name
             noteBlockPool[i].name += "_" + i.ToString();
