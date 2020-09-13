@@ -14,32 +14,33 @@ public class NoteBlockSpawner : UdonSharpBehaviour
     [Header("Settings")]
     public GameObject noteBlockPrefab;
     public int poolAmount = 10;
-    public string SongDataString = "";
+    public int queueCapacity = 30;
+    public float beatsPerMinute = 132;
     public float songDuration = 15;
     public float speed = 10;
-    public float spawnRangeX = 5;
-    public float spawnRangeY = 0;
-    public float spawnRangeZ = 5;
-    public float despawnDistance = 15;
-    public int queueCapacity = 30;
+    //public float spawnRangeX = 5;
+    //public float spawnRangeY = 0;
+    //public float spawnRangeZ = 5;
+    //public float despawnDistance = 15;
+    [TextArea(15, 20)] public string SongDataString = "";
 
     [Header("Note data")]
-    private float[] _time;
-    private int[] _lineIndex;
-    private int[] _lineLayer;
-    private int[] _type;
-    private int[] _cutDirection;
+    private float[] _time = new float[0];
+    private int[] _lineIndex = new int[0];
+    private int[] _lineLayer = new int[0];
+    private int[] _type = new int[0];
+    private int[] _cutDirection = new int[0];
 
     private float songRemainingTimer;
     private bool isSongActive = false;
     private GameObject[] noteBlockPool = new GameObject[0];
     private int currentNotePoolIndex = 0;
-    private float beatInterval = 0;
+    private int nextTimeIndex = 0;
     private int totalSongNotes;
-    private float beatsPerMinute;
     private float accumulatedBeats = 0;
     private int avaliableActivePoolIndex = 0;
     private Transform[] activeNotesPool = new Transform[0];
+    private float elapsedTime = 0f;
 
     // Start is called before the first frame update
     void Start()
@@ -48,6 +49,8 @@ public class NoteBlockSpawner : UdonSharpBehaviour
         InitializeNoteBlockPool();
 
         ParseAndCacheSongData();
+
+        StartSong();
     }
 
     public void Update()
@@ -80,16 +83,31 @@ public class NoteBlockSpawner : UdonSharpBehaviour
     #region ParseAndCacheSongData()
     private void ParseAndCacheSongData()
     {
-        //  Parse song data
+        Debug.Log("Parsing song data...");
+
+        //  Clean up string data
         SongDataString = SongDataString.Replace(" ", String.Empty);
         SongDataString = SongDataString.Replace("\"", String.Empty);
+        SongDataString = SongDataString.Replace("\n", String.Empty);
+        SongDataString = SongDataString.Replace("\r", String.Empty);
+        SongDataString = SongDataString.Replace("\t", String.Empty);
         //Debug.Log(SongDataString);
+
+        //  Parse song data
         string[] notes = SongDataString.Split(new[] { "},{" }, StringSplitOptions.None);
         totalSongNotes = notes.Length;
 
         //  cleanup leading and trailing characters
         notes[0] = notes[0].Replace("{", String.Empty);
         notes[notes.Length - 1] = notes[notes.Length - 1].Replace("}", String.Empty);
+
+        //  init cache array
+        //Debug.Log("NOTES LENGTH: " + notes.Length);
+        _time = new float[notes.Length];
+        _lineIndex = new int[notes.Length];
+        _lineLayer = new int[notes.Length];
+        _type = new int[notes.Length];
+        _cutDirection = new int[notes.Length];
 
         for (int i = 0; i < notes.Length; i++)
         {
@@ -98,13 +116,6 @@ public class NoteBlockSpawner : UdonSharpBehaviour
 
             //  Parse note data
             string[] parameters = notes[i].Split(',');
-
-            //  init cache array
-            _time = new float[notes.Length];
-            _lineIndex = new int[notes.Length];
-            _lineLayer = new int[notes.Length];
-            _type = new int[notes.Length];
-            _cutDirection = new int[notes.Length];
 
             for (int j = 0; j < parameters.Length; j++)
             {
@@ -132,64 +143,150 @@ public class NoteBlockSpawner : UdonSharpBehaviour
             //Debug.Log(_type[i]);
             //Debug.Log(_cutDirection[i]);
         }
+
+        //Debug.Log("==============");
+        //for (int i = 0; i < _time.Length; i++)
+        //{
+        //    Debug.Log(_time[i]);
+        //}
+        //Debug.Log("==============");
+
+        //Debug.Log("Parse completed.");
     } 
     #endregion
 
     private void SpawnNoteOnBeat()
     {
         //  [OLD]
-        beatInterval -= Time.deltaTime;
-        if (beatInterval <= 0)
-        {
-            beatInterval = 0.25f;
-
-            //  spawn with random position
-            noteBlockPool[currentNotePoolIndex].gameObject.SetActive(true);
-            float randX = UnityEngine.Random.Range(-spawnRangeX, spawnRangeX);
-            float randY = UnityEngine.Random.Range(-spawnRangeY, spawnRangeY);
-            float randZ = UnityEngine.Random.Range(-spawnRangeZ, spawnRangeZ);
-            Vector3 pos = transform.position + new Vector3(randX, randY, randZ);
-            noteBlockPool[currentNotePoolIndex].transform.position = pos;
-
-            //  enqueue
-            bool isInserted = InsertIntoActivePool(noteBlockPool[currentNotePoolIndex].transform);
-            if (isInserted == false)
-            {
-                Debug.LogError("pool is overloaded! Slow down spawnrate or increase pool capacity!");
-            }
-
-            //  cycle pool index
-            currentNotePoolIndex++;
-            if (currentNotePoolIndex == noteBlockPool.Length)
-            {
-                currentNotePoolIndex = 0;
-            }
-        }
-
-        //  [BEATS PER MINUTE METHOD]
-        //var nextNoteBlockTime = 0;
         //beatInterval -= Time.deltaTime;
         //if (beatInterval <= 0)
         //{
-        //    beatInterval = 60 / beatsPerMinute;
-        //    accumulatedBeats += beatInterval;
+        //    beatInterval = 0.25f;
 
-        //    if (accumulatedBeats <= nextNoteBlockTime)
+        //    //  spawn with random position
+        //    noteBlockPool[currentNotePoolIndex].gameObject.SetActive(true);
+        //    float randX = UnityEngine.Random.Range(-spawnRangeX, spawnRangeX);
+        //    float randY = UnityEngine.Random.Range(-spawnRangeY, spawnRangeY);
+        //    float randZ = UnityEngine.Random.Range(-spawnRangeZ, spawnRangeZ);
+        //    Vector3 pos = transform.position + new Vector3(randX, randY, randZ);
+        //    noteBlockPool[currentNotePoolIndex].transform.position = pos;
+
+        //    //  enqueue
+        //    bool isInserted = InsertIntoActivePool(noteBlockPool[currentNotePoolIndex].transform);
+        //    if (isInserted == false)
         //    {
-        //        //  spawn with random position
-        //        noteBlockPool[currentActiveSpawnIndex].gameObject.SetActive(true);
-        //        float randX = UnityEngine.Random.Range(-spawnRangeX, spawnRangeX);
-        //        float randY = UnityEngine.Random.Range(-spawnRangeY, spawnRangeY);
-        //        float randZ = UnityEngine.Random.Range(-spawnRangeZ, spawnRangeZ);
-        //        Vector3 pos = transform.position + new Vector3(randX, randY, randZ);
-        //        noteBlockPool[currentActiveSpawnIndex].transform.position = pos;
+        //        Debug.LogError("pool is overloaded! Slow down spawnrate or increase pool capacity!");
+        //    }
 
-        //        //  enqueue
-        //        QueueEnqueue(noteBlockPool[currentActiveSpawnIndex].transform);
-
-        //        currentActiveSpawnIndex++;
+        //    //  cycle pool index
+        //    currentNotePoolIndex++;
+        //    if (currentNotePoolIndex == noteBlockPool.Length)
+        //    {
+        //        currentNotePoolIndex = 0;
         //    }
         //}
+
+        //  [BEATS PER MINUTE METHOD]
+        elapsedTime += Time.deltaTime;
+        if (elapsedTime >= 1f)
+        {
+            elapsedTime = elapsedTime % 1f;
+
+            accumulatedBeats += beatsPerMinute / 60.0f;
+            //Debug.Log("ACCUMULATED BEATS: " + accumulatedBeats);
+
+            //  Get next note to spawn if any
+            float nextBeatTime = -1;
+            do
+            {
+                //  if we still have notes left in the song...
+                //Debug.Log("next beat index: " + nextTimeIndex);
+                if (nextTimeIndex < _time.Length)
+                {
+                    //Debug.Log("next note's beat time ACTUAL: " + _time[nextTimeIndex]);
+                    //Debug.Log("next note's beat time PRE: " + nextBeatTime);
+                    nextBeatTime = _time[nextTimeIndex];
+                    //Debug.Log("next note's beat time POST: " + nextBeatTime);
+
+                    //  if the next beat time is less or equal to our acculated beats... spawn that note and increment index for our next note.
+                    if (nextBeatTime <= accumulatedBeats)
+                    {
+                        //Debug.Log("Playing note at beat: " + nextBeatTime);
+
+                        //  solve position for line column
+                        Vector3 pos = transform.position;
+                        if (_lineIndex[nextTimeIndex] == 0)
+                            pos += new Vector3(0, 0, -1);
+                        else if (_lineIndex[nextTimeIndex] == 1)
+                            pos += new Vector3(0, 0, 0);
+                        else if (_lineIndex[nextTimeIndex] == 2)
+                            pos += new Vector3(0, 0, 1);
+                        else if (_lineIndex[nextTimeIndex] == 3)
+                            pos += new Vector3(0, 0, 2);
+
+                        //  solve position for line layer
+                        if (_lineLayer[nextTimeIndex] == 0)
+                            pos += new Vector3(0, -1, 0);
+                        else if (_lineLayer[nextTimeIndex] == 1)
+                            pos += new Vector3(0, 0, 0);
+                        else if (_lineLayer[nextTimeIndex] == 2)
+                            pos += new Vector3(0, 1, 0);
+
+                        //  solve for cut direction
+                        Vector3 rot = Vector3.zero;
+                        if (_lineLayer[nextTimeIndex] == 0)
+                            rot = new Vector3(0, 0, 180);
+                        else if (_lineLayer[nextTimeIndex] == 1)
+                            rot = new Vector3(0, 0, 0);
+                        else if (_lineLayer[nextTimeIndex] == 2)
+                            rot = new Vector3(0, 0, 90);
+                        else if (_lineLayer[nextTimeIndex] == 3)
+                            rot = new Vector3(0, 0, 270);
+                        else if (_lineLayer[nextTimeIndex] == 4)
+                            rot = new Vector3(0, 0, 135);
+                        else if (_lineLayer[nextTimeIndex] == 5)
+                            rot = new Vector3(0, 0, 225);
+                        else if (_lineLayer[nextTimeIndex] == 6)
+                            rot = new Vector3(0, 0, 45);
+                        else if (_lineLayer[nextTimeIndex] == 7)
+                            rot = new Vector3(0, 0, 315);
+                        //else if (_lineLayer[currentNotesIndex] == 8)
+                        //    rot = new Vector3(0, 0, 0);
+
+                        //  increment     
+                        nextTimeIndex++;
+
+                        //  spawn
+                        noteBlockPool[currentNotePoolIndex].gameObject.SetActive(true);
+                        noteBlockPool[currentNotePoolIndex].transform.position = pos;
+                        noteBlockPool[currentNotePoolIndex].transform.rotation = Quaternion.Euler(rot);
+
+                        //  insert check
+                        bool isInserted = InsertIntoActivePool(noteBlockPool[currentNotePoolIndex].transform);
+                        if (isInserted == false)
+                        {
+                            Debug.LogError("pool is overloaded! Slow down spawnrate or increase pool capacity!");
+                        }
+
+                        //  cycle pool index
+                        currentNotePoolIndex++;
+                        if (currentNotePoolIndex >= noteBlockPool.Length)
+                        {
+                            currentNotePoolIndex = 0;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+                
+            } while (nextBeatTime >= 0);
+        }
     }
 
     public bool InsertIntoActivePool(Transform tr)
@@ -284,24 +381,27 @@ public class NoteBlockSpawner : UdonSharpBehaviour
         for (int i = 0; i < poolAmount; i++)
         {
             noteBlockPool[i] = VRCInstantiate(noteBlockPrefab);
+            noteBlockPool[i].transform.rotation = Quaternion.LookRotation(transform.forward);
 
             //  Assign index id to noteblock using it's gameobject name
             noteBlockPool[i].name += "_" + i.ToString();
         }
+
+        Debug.Log("Initializing note block pool COMPLETED.");
     }
 
     public void StartSong()
     {
-        Debug.Log("SONG STARTED.");
-
         StopSong();
+
+        Debug.Log("SONG STARTED.");
 
         //  Reset/re-initialize
         activeNotesPool = new Transform[queueCapacity];
 
         avaliableActivePoolIndex = 0;
         currentNotePoolIndex = 0;
-        beatInterval = 0;
+        nextTimeIndex = 0;
         accumulatedBeats = 0;
 
         songRemainingTimer = songDuration;
